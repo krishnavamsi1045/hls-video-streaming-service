@@ -18,7 +18,7 @@ namespace TranscodeVideoServices.Services
         private IProcessingJobRepositary _processingJobRepoistary;
         private readonly IBlobService _blobservices;
 
-        public VideoService(IJobQueue queue, IProcessingJobRepositary processingJobRepositary, IVideoRepositary videoRepositary, IBlobService blobServices)
+        public VideoService(IJobQueue queue, IProcessingJobRepositary processingJobRepositary, IVideoRepositary videoRepositary,IBlobService blobServices)
         {
             this._jobQueue = queue;
             this._processingJobRepoistary = processingJobRepositary;
@@ -38,7 +38,11 @@ namespace TranscodeVideoServices.Services
 
             var video = new Video(title, description);
 
-            var path = $"/raw/{video.Id}.mp4";
+            var path = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "storage",
+                "raw",
+                $"{video.Id}.mp4");
 
             await _blobservices.UploadAsync(path, File);
 
@@ -92,7 +96,7 @@ namespace TranscodeVideoServices.Services
                 Description = video.Description,
                 Id = video.Id,
                 Title = video.Title,
-                PlaybackUrl = video.Status == VideoStatus.Ready ? video.MasterPlayListFilePath : null,
+                PlaybackUrl = $"/storage/hls/{video.Id}/index.m3u8",
                 Duration = video.Duration
 
 
@@ -101,7 +105,7 @@ namespace TranscodeVideoServices.Services
         }
 
 
-        public async Task<IEnumerable<VideoDto>> GetAllAsync(int pagesize)
+        public async Task<IEnumerable<VideoDto>> GetAllAsync()
         {
 
             var videos = await _videoRepositary.GetAllAsync();
@@ -114,7 +118,7 @@ namespace TranscodeVideoServices.Services
                 Title = videos.Title,
                 Description = videos.Description,
                 Duration = videos.Duration,
-                PlaybackUrl = videos.Status == VideoStatus.Ready ? videos.MasterPlayListFilePath : null
+                PlaybackUrl = $"/storage/hls/{videos.Id}/index.m3u8"
             }).ToList(); ;
 
 
@@ -129,7 +133,7 @@ namespace TranscodeVideoServices.Services
             var video = await _videoRepositary.GetByIdAsync(videoId);
             if (video == null) throw new InvalidOperationException("Video not found");
             if (video.Status != VideoStatus.Failed) throw new InvalidOperationException("only failed videos can be retried");
-            var job = await _processingJobRepoistary.GetByVideoIdAsync(videoId);
+            var job = await _processingJobRepoistary.GetByIdAsync(videoId);
             if (job == null) throw new InvalidOperationException("processing jobs not found");
 
             if (job.RetryCount >= job.MaxRetryCount)
@@ -146,10 +150,7 @@ namespace TranscodeVideoServices.Services
 
         }
 
-        public Task<IEnumerable<VideoDto>> GetAllAsync()
-        {
-            throw new NotImplementedException();
-        }
+        
     }
 
 }

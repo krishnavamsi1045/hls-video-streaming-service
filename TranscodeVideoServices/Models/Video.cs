@@ -38,7 +38,7 @@ namespace TranscodeVideoServices.Models
 		{
 			if (string.IsNullOrWhiteSpace(path))
 				throw new ArgumentException("invalid file path");
-			if (string.IsNullOrWhiteSpace(OrginalFilePath))
+			if (!string.IsNullOrWhiteSpace(OrginalFilePath))
 			{
 				throw new InvalidOperationException("File path already exist");
 			}
@@ -91,11 +91,6 @@ namespace TranscodeVideoServices.Models
 
 	}
     
-   
- 
-    
-   
-
 	public class VideoProcessingResult
 	{
 
@@ -129,22 +124,79 @@ namespace TranscodeVideoServices.Models
 		Task<Stream> DownloadAsync(string path);
 	}
 
-  
+
 	public class Worker
 	{
 		private readonly IJobQueue _jobQueue;
+		private readonly IVideoProcessor _videoProcessor;
+		private readonly IVideoRepositary _videoRepositary;
+		private readonly IProcessingJobRepositary _processingJobRepositary;
+
+		public Worker(IJobQueue queue,IVideoProcessor videoProcessor,IVideoRepositary repo,IProcessingJobRepositary processingJobRepositary)
+		{
+			this._jobQueue = queue;
+			this._videoProcessor = videoProcessor;
+			this._videoRepositary = repo;
+			this._processingJobRepositary = processingJobRepositary;
+		}
 		public async Task RunAsync()
 		{
+			Console.WriteLine("Waiting for the job ");
 			while (true)
 			{
-				var jobId = await _jobQueue.DequeueAsync();
-				Console.WriteLine($"processing job : ${jobId}");
+				try
+				{
+					var jobId = await _jobQueue.DequeueAsync();
+
+					Console.WriteLine($"processing job : {jobId}");
+
+					var job =
+						await _processingJobRepositary
+							.GetByIdAsync(jobId);
+
+					if (job == null)
+						continue;
+
+					var video =
+						await _videoRepositary
+							.GetByIdAsync(job.VideoId);
+
+					if (video == null)
+						continue;
+
+					Console.WriteLine("before start");
+
+					job.Start();
+
+					Console.WriteLine("after start");
+
+					video.MarkProcessing();
+
+					Console.WriteLine("after mark processing");
+
+					var outputPath = Path.Combine(
+						Directory.GetCurrentDirectory(),
+						"storage",
+						"hls",
+						video.Id.ToString());
+
+					Directory.CreateDirectory(outputPath);
+					Console.WriteLine("ffmpeg started");
+					var result =
+						await _videoProcessor.ProcessAsync(
+							job.InputPath,
+							outputPath);
+
+					Console.WriteLine("ffmpeg done");
+				}
+				catch (Exception ex)
+				{
+					Console.WriteLine(ex.ToString());
+				}
 			}
 		}
 	}
 
-
-   
 	public class VideoVarintPofile
 	{
 		public string Resolution { get; set; }
@@ -152,10 +204,6 @@ namespace TranscodeVideoServices.Models
 		public string Bitrate { get; set; }
 
 	}
-
-    
-
-
 }
 
 

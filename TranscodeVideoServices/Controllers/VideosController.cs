@@ -14,7 +14,7 @@ namespace TranscodeVideoServices.Controllers
         }
 
         [HttpPost("upload")]
-        public async Task<IActionResult> upload(IFormFile file, [FromBody] string title, [FromBody] string description)
+        public async Task<IActionResult> upload(IFormFile file, [FromForm] string title, [FromForm] string description)
         {
             if (file == null || file.Length == 0)
                 return BadRequest("Invalid file");

@@ -17,4 +17,9 @@
     <None Remove="Models\" />
     <None Remove="Services\" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="storage\hls\" />
+    <Folder Include="storage\raw\" />
+  </ItemGroup>
 </Project>

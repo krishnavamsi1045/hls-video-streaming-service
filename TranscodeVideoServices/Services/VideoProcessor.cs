@@ -9,60 +9,45 @@ namespace TranscodeVideoServices.Services
     }
     public class FFmpegVideoProcessor : IVideoProcessor
     {
-        public async Task<VideoProcessingResult> ProcessAsync(string inputPath, string outputPath)
+        public async Task<VideoProcessingResult>
+            ProcessAsync(
+                string inputPath,
+                string outputPath)
         {
-            var profiles = new List<VideoVarintPofile> {
-                new (){Resolution = "1080p",Scale="1920:1080",Bitrate="3000k"},
-                new (){Resolution="720p",Scale="1280:720",Bitrate="1500k"},
-                new (){Resolution="480p",Scale = "854:480",Bitrate="800k"}
-            };
+            var args =
+                BuildFfmpegArgs(
+                    inputPath,
+                    outputPath);
 
-            var args = BuildFfmpegArgs(inputPath, outputPath, profiles);
             await RunFFmpeg(args);
-            var varints = new List<VarintInfo>();
-
-            for (int i = 0; i < profiles.Count; i++)
-            {
-                varints.Add(new VarintInfo
-                {
-                    Resolution = profiles[i].Resolution,
-                    Bitrate = int.Parse(profiles[i].Bitrate.Replace("k", "")),
-                    PlayListPath = $"{outputPath}/output_{i}/index.m3u8"
-                }); ;
-            }
 
             return new VideoProcessingResult
             {
-                MasterPlayListPath = $"{outputPath}/master.m3u8",
-                Varints = varints
+                MasterPlayListPath =
+                    Path.Combine(outputPath, "index.m3u8"),
+
+                Varints = new List<VarintInfo>()
             };
-
-
         }
-
-        private string BuildFfmpegArgs(string input, string outputDir, List<VideoVarintPofile> profiles)
+        private string BuildFfmpegArgs(
+            string input,
+            string outputDir)
         {
-            var args = $"-i \"{input}\" ";
+            var outputPath =
+                Path.Combine(outputDir, "index.m3u8");
 
-            for (int i = 0; i < profiles.Count; i++)
-            {
-                args += $"-filter:v:{i} scale={profiles[i].Scale} -b:v:{i} {profiles[i].Bitrate} ";
-            }
-
-            args += "-map 0:v -map 0:a? ";
-            args += "-f hls -hls_time 6 -hls_playlist_type vod ";
-            args += "-master_pl_name master.m3u8 ";
-
-            // map variants
-            var map = string.Join(" ", profiles.Select((p, i) => $"v:{i},a:0"));
-            args += $"-var_stream_map \"{map}\" ";
-
-            args += $"\"{Path.Combine(outputDir, "output_%v/index.m3u8")}\"";
-
-            return args;
+            return
+                $"-i \"{input}\" " +
+                "-codec:v libx264 " +
+                "-codec:a aac " +
+                "-preset fast " +
+                "-g 48 " +
+                "-sc_threshold 0 " +
+                "-hls_time 6 " +
+                "-hls_playlist_type vod " +
+                $"-hls_segment_filename \"{outputDir}/segment_%03d.ts\" " +
+                $"\"{outputPath}\"";
         }
-
-
         public async Task RunFFmpeg(string arg)
         {
             var process = new Process();

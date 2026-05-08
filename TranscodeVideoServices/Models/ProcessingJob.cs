@@ -5,7 +5,7 @@ namespace TranscodeVideoServices.Models
     public interface IProcessingJobRepositary
     {
         Task AddAsync(ProcessingJob job);
-        Task<ProcessingJob?> GetByVideoIdAsync(Guid id);
+        Task<ProcessingJob?> GetByIdAsync(Guid id);
         Task UpdateAsync(ProcessingJob job);
         Task<IEnumerable<ProcessingJob>> GetPendingJobsAsync();
 
@@ -21,9 +21,9 @@ namespace TranscodeVideoServices.Models
             return Task.CompletedTask;
         }
 
-        public Task<ProcessingJob> GetByVideoIdAsync(Guid id)
+        public Task<ProcessingJob> GetByIdAsync(Guid id)
         {
-            var job = processingJobs.FirstOrDefault(j => j.VideoId == id);
+            var job = processingJobs.FirstOrDefault(j => j.Id == id);
             if (job == null)
                 throw new InvalidOperationException("Job not found for video id: " + id);
 
